@@ -1,0 +1,43 @@
+Architecture Design
+
+Infrastructure Setup
+
+
+
+Core Public Connectors
+	REST connector implementation
+	Database connector
+Private Connectors
+
+
+Tenant Access Control
+
+Testing
+Connector Templates/Base Framework
+common Zeebe client configuration, shared utilities and libraries, health check framework
+
+
+
+Infrastructure Setup
+	AWS ECS Fargate
+	Secrets Manager setup for credentials
+
+
+CI/CD Pipeline Setup
+	ECS deployment strategy
+	Rollback automation
+	Health check configuration
+
+Connector Testing
+	Unit tests for connector logic
+	Integration tests with Zeebe
+	End-to-end workflow testing
+	Performance testing under load
+
+Monitoring
+	Integrate CloudWatch dashboards for connectors
+	Collect execution count, success/failure rates, execution duration, and queue depth for pending jobs
+	Alarms for failures and latency
+	Connector Health check endpoints
+
+
