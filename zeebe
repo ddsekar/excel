@@ -1,3 +1,4 @@
+
 Architecture Design
 
 Infrastructure Setup
@@ -39,5 +40,118 @@ Monitoring
 	Collect execution count, success/failure rates, execution duration, and queue depth for pending jobs
 	Alarms for failures and latency
 	Connector Health check endpoints
+
+
+
+AWS Lambda Integration
+Deploy lightweight connectors as AWS Lambda functions for simple, infrequent integrations. Use the Zeebe Lambda Worker as a bridge running on ECS Fargate that subscribes to Zeebe and invokes Lambda functions. Configure Lambda functions to call back to Zeebe for publishing messages or variables.
+
+In your ECS deployment, ensure your connector containers can reach the Zeebe Gateway on port 26500 (default gRPC port). If Zeebe runs in a private subnet, place connectors in the same VPC or use VPC peering. Configure security groups to allow outbound traffic from connectors to Zeebe Gateway port 26500.
+
+AWS Security Token Service (STS) 
+IAM Cross-Account Roles
+
+
+Task Breakdown for Your Plan
+Cross-Account Setup: Define IAM role naming conventions per client, create trust policies for role assumption, implement AssumeRole logic in connectors, credential caching and rotation
+
+VPC Configuration: Private subnet design for connectors, VPC endpoints for AWS services (S3, DynamoDB, SQS, Lambda, Secrets Manager), route table configuration, security group rules
+
+PrivateLink Integration: Client onboarding process for VPC Endpoint Services, interface endpoint creation per client, DNS resolution configuration, connectivity testing
+
+Connector Development: AWS SDK integration for role assumption, S3 cross-account connector, Lambda cross-account connector, DynamoDB cross-account connector, custom PrivateLink connector
+
+Security & Compliance: IAM policy enforcement, network traffic encryption, audit logging setup, security group hardening, compliance documentation
+
+
+
+
+Credential Caching Strategy
+
+
+
+
+
+
+Account Onboarding Automation
+Client Onboarding Workflow
+Create an automated onboarding process:​
+
+Account Creation: Use AWS Organizations API to create new member account or invite existing account
+
+Role Deployment: Automatically deploy the ZeebeConnectorAccessRole via CloudFormation StackSet
+
+Configuration Storage: Store client account ID in DynamoDB with metadata (region, enabled services, quotas)
+
+Verification: Test role assumption and service access before activating client
+
+This entire process can be automated through a workflow orchestrated by Zeebe itself.​
+
+
+
+Use IAM Cross-Account Roles with STS AssumeRole as your primary pattern, combined with credential caching and AWS Organizations for governance.
+
+
+
+AWS Organizations Setup
+
+
+Task Breakdown for Your Plan
+Architecture & Design: Define unified connector interface, design credential caching strategy, create service operation schemas, establish monitoring requirements
+
+AWS Organizations Setup: Create organization structure, deploy IAM role StackSets, implement account onboarding workflow, configure Service Control Policies
+
+Core Connector Development: Credential cache implementation, S3 operations handler, Lambda operations handler, SQS operations handler, FIS operations handler
+
+Client Integration: DynamoDB account metadata table, account registration API, role verification testing, external ID management
+
+Performance Optimization: Client connection pooling, async operation support, batch processing patterns, credential refresh automation
+
+Security & Compliance: External ID enforcement, least-privilege policy refinement, CloudTrail logging setup, security audit automation
+
+Testing: Multi-account integration testing, load testing (1000+ accounts), failure scenario testing, credential expiration handling
+
+Monitoring: CloudWatch metrics per service, X-Ray distributed tracing, STS quota monitoring, account-specific dashboards
+
+
+
+PrivateLink Connection Overhead
+AWS PrivateLink requires creating a VPC endpoint in your VPC for each service you want to access. While PrivateLink supports multiple consumers connecting to one service provider, it doesn't work the other way around
+
+
+
+
+IP address exhaustion: Each VPC endpoint consumes one IP address per availability zone (typically 3 IPs minimum). With 1,000 clients, that's 3,000+ IP addresses just for endpoints, which can exhaust your VPC's available IP space
+
+
+
+Why IAM Cross-Account Roles Scale Better
+No Network Connectivity Required
+IAM role assumption works over the AWS public API endpoints (or VPC endpoints for AWS STS service itself). Your connector doesn't need direct network connectivity to each client VPC—it only needs to call AWS APIs.​
+
+This eliminates network topology management, CIDR planning, route table maintenance, and IP address allocation concerns entirely.
+
+Zero Per-Account Infrastructure
+Each additional client account requires zero additional infrastructure in your connector environment. You simply store their account ID and role name in DynamoDB.​
+
+Compare this to PrivateLink/VPC Peering where each client requires new networking resources, configurations, and ongoing management.
+
+Unlimited Scalability
+AWS STS supports 600 AssumeRole requests per second per account with no limit on the number of different roles you can assume or accounts you can access. With credential caching (1-hour validity), you can easily support thousands of accounts.​
+
+Real-world proven: Companies like FactSet successfully manage 1,000+ AWS accounts using cross-account roles, not network connectivity.
+
+
+
+PrivateLink
+Client creates an "Endpoint Service" for their database
+
+You create an "Interface Endpoint" in your VPC pointing to their service
+
+Your connector accesses only the database through the endpoint
+
+Problem: You need to create separate endpoints for each client (expensive and complex at scale)
+
+
 
 
